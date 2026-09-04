@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { fromCents, toCents } from '../lib/money'
+import { fromCents } from '../lib/money'
 import AddExpense from './AddExpense'
+import Budgets from './Budgets'
 
 export default function Dashboard({ session }) {
   const userId = session.user.id
@@ -9,6 +10,7 @@ export default function Dashboard({ session }) {
   const [txns, setTxns] = useState([])
   const [categories, setCategories] = useState([])
   const [adding, setAdding] = useState(false)
+  const [editingBudget, setEditingBudget] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const monthStart = new Date()
@@ -33,16 +35,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => { load() }, [load])
 
-  async function saveBudget() {
-    const val = prompt('Monthly budget?')
-    const cents = toCents(val)
-    if (cents === null) return
-    await supabase
-      .from('profiles')
-      .update({ monthly_budget: cents })
-      .eq('id', userId)
-    load()
-  }
+
 
   if (loading) return <p style={{ padding: 24 }}>Loading...</p>
 
@@ -66,6 +59,15 @@ export default function Dashboard({ session }) {
         userId={userId}
         onSaved={() => { setAdding(false); load() }}
         onCancel={() => setAdding(false)}
+      />
+    )
+  }
+
+    if (editingBudget) {
+    return (
+      <Budgets
+        userId={userId}
+        onDone={() => { setEditingBudget(false); load() }}
       />
     )
   }
@@ -103,7 +105,7 @@ export default function Dashboard({ session }) {
             ? `${fromCents(Math.abs(left))} over budget`
             : `${fromCents(left)} left of ${fromCents(budget)}`}
         {' · '}
-        <button onClick={saveBudget} style={linkBtn}>edit</button>
+        <button onClick={() => setEditingBudget(true)} style={linkBtn}>edit</button>
       </p>
 
       <div style={{ width: '100%', maxWidth: 380 }}>
