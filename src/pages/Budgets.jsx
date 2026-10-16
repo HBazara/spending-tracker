@@ -10,6 +10,7 @@ export default function Budgets({ userId, onDone }) {
   const [rows, setRows] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [monthlyText, setMonthlyText] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -21,7 +22,9 @@ export default function Budgets({ userId, onDone }) {
           .select('category_id, amount, percent, alert_threshold'),
       ])
 
-      setMonthly(p.data?.monthly_budget ?? 0)
+      const mb = p.data?.monthly_budget ?? 0
+      setMonthly(mb)
+      setMonthlyText(mb ? (mb / 100).toFixed(2) : '')
       setGlobalThreshold(p.data?.alert_threshold ?? 80)
       setCategories(c.data ?? [])
 
@@ -112,9 +115,17 @@ export default function Budgets({ userId, onDone }) {
       <label style={label}>Monthly total</label>
       <input
         type="text" inputMode="decimal"
-        value={monthly ? (monthly / 100).toFixed(2) : ''}
+        value={monthlyText}
         placeholder="0.00"
-        onChange={(e) => setMonthly(toCents(e.target.value) ?? 0)}
+        onChange={(e) => {
+          const raw = e.target.value
+          setMonthlyText(raw)
+          setMonthly(toCents(raw) ?? 0)
+        }}
+        onBlur={() => {
+          const cents = toCents(monthlyText)
+          setMonthlyText(cents ? (cents / 100).toFixed(2) : '')
+        }}
         style={{ ...input, fontSize: 24, fontWeight: 600 }}
       />
 
@@ -122,7 +133,15 @@ export default function Budgets({ userId, onDone }) {
       <input
         type="number" min="1" max="99"
         value={globalThreshold}
-        onChange={(e) => setGlobalThreshold(parseInt(e.target.value) || 80)}
+        onChange={(e) => {
+          const v = e.target.value
+          setGlobalThreshold(v === '' ? '' : parseInt(v))
+        }}
+        onBlur={() => {
+          if (globalThreshold === '' || isNaN(globalThreshold)) {
+            setGlobalThreshold(80)
+          }
+        }}
         style={input}
       />
 
