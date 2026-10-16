@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { fromCents, toCents } from '../lib/money'
-import { resolveBudget } from '../lib/budget'
 
 export default function Budgets({ userId, onDone }) {
   const [monthly, setMonthly] = useState(0)
+  // Raw text for the monthly field. A controlled input must hold what the
+  // user typed, not a reformatted version of it, or the cursor jumps on
+  // every keystroke. Parsing happens on blur and on save.
+  const [monthlyText, setMonthlyText] = useState('')
   const [globalThreshold, setGlobalThreshold] = useState(80)
   const [categories, setCategories] = useState([])
   const [rows, setRows] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [monthlyText, setMonthlyText] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -62,13 +64,17 @@ export default function Budgets({ userId, onDone }) {
   }, 0)
 
   const overAllocated = allocated > monthly && monthly > 0
+  const unallocated = monthly - allocated
 
   async function save() {
     setSaving(true)
 
+    const threshold =
+      globalThreshold === '' || isNaN(globalThreshold) ? 80 : globalThreshold
+
     await supabase.from('profiles').update({
       monthly_budget: monthly,
-      alert_threshold: globalThreshold,
+      alert_threshold: threshold,
     }).eq('id', userId)
 
     await supabase.from('budgets').delete().eq('user_id', userId)
@@ -78,21 +84,22 @@ export default function Budgets({ userId, onDone }) {
       const r = rows[cat.id]
       if (!r?.value) continue
 
-      const threshold = r.threshold === '' ? null : parseInt(r.threshold)
+      const catThreshold =
+        r.threshold === '' || r.threshold == null ? null : parseInt(r.threshold)
 
       if (r.mode === 'percent') {
         const pct = parseFloat(r.value)
         if (isNaN(pct) || pct <= 0) continue
         inserts.push({
           user_id: userId, category_id: cat.id,
-          percent: pct, amount: null, alert_threshold: threshold,
+          percent: pct, amount: null, alert_threshold: catThreshold,
         })
       } else {
         const cents = toCents(r.value)
         if (!cents) continue
         inserts.push({
           user_id: userId, category_id: cat.id,
-          amount: cents, percent: null, alert_threshold: threshold,
+          amount: cents, percent: null, alert_threshold: catThreshold,
         })
       }
     }
@@ -153,10 +160,16 @@ export default function Budgets({ userId, onDone }) {
         <span>Allocated</span>
         <span>{fromCents(allocated)} of {fromCents(monthly)}</span>
       </div>
+
       {overAllocated && (
         <p style={{ color: '#c0392b', fontSize: 13, margin: '0 0 12px' }}>
           You have allocated more than your total. That is allowed, but you
           will go over if you spend it all.
+        </p>
+      )}
+      {!overAllocated && monthly > 0 && unallocated > 0 && (
+        <p style={{ color: '#888', fontSize: 13, margin: '0 0 12px' }}>
+          {fromCents(unallocated)} unallocated.
         </p>
       )}
 
@@ -187,7 +200,7 @@ export default function Budgets({ userId, onDone }) {
               />
               <input
                 type="number" min="1" max="99"
-                placeholder={String(globalThreshold)}
+                placeholder={String(globalThreshold || 80)}
                 value={r.threshold}
                 onChange={(e) => update(cat.id, { threshold: e.target.value })}
                 style={{ ...input, width: 70, marginBottom: 0 }}
@@ -204,7 +217,7 @@ export default function Budgets({ userId, onDone }) {
 
       <p style={{ fontSize: 12, color: '#aaa', marginTop: 16 }}>
         The last box is the alert threshold for that category. Leave it blank
-        to use your global {globalThreshold}%.
+        to use your global {globalThreshold || 80}%.
       </p>
 
       <button onClick={save} disabled={saving} style={primaryBtn}>

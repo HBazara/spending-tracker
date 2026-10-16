@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { toCents } from '../lib/money'
+import { todayLocal } from '../lib/dates'
 
 export default function AddExpense({ categories, userId, onSaved, onCancel }) {
   const [amount, setAmount] = useState('')
   const [merchant, setMerchant] = useState('')
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(todayLocal())
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')

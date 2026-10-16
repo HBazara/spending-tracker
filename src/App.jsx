@@ -1,4 +1,3 @@
-import { supabase } from './lib/supabase'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
